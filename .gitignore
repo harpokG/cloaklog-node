@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+coverage/
+
+# Logs and temp files
+*.log
+demo-output.txt
+git-check.txt
+git-publish-check.txt
+last-commit-files.txt
+tracked-files.txt
+clean-status.txt
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
