@@ -75,6 +75,7 @@ describe('wrapOpenAI adapter', () => {
           return createMock.mock.calls.length === 0 ? 1000 : 1120;
         };
       })(),
+      keyId: 'tenant-eu-1',
       onLog: (log) => {
         capturedLog = log;
       },
@@ -109,6 +110,7 @@ describe('wrapOpenAI adapter', () => {
 
     const log: EncryptedLogPayload = capturedLog;
 
+    expect(log.metadata.keyId).toBe('tenant-eu-1');
     expect(log.metadata.model).toBe('gpt-4o-mini');
     expect(log.metadata.usage).toEqual({
       prompt_tokens: 19,
@@ -133,5 +135,56 @@ describe('wrapOpenAI adapter', () => {
 
     expect(decryptedRequest).toBe(sensitiveRequestText);
     expect(decryptedResponse).toBe(sensitiveResponseText);
+  });
+
+  it('fails secure and emits no log when encryption setup fails', async () => {
+    const sensitiveRequestText = 'IBAN FR76 3000 4000 5000 6000 7000 890';
+    const sensitiveResponseText = 'Validated account transfer details';
+
+    const createMock = vi.fn(async (...args: any[]): Promise<MockCreateResponse> => {
+      const params = args[0] as MockCreateParams;
+
+      return {
+        id: 'chatcmpl_test_2',
+        model: params.model,
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: sensitiveResponseText,
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 8,
+          total_tokens: 20,
+        },
+      };
+    });
+
+    const openaiMock = {
+      chat: {
+        completions: {
+          create: createMock,
+        },
+      },
+    };
+
+    const onLog = vi.fn();
+
+    const wrapped = wrapOpenAI(openaiMock, 'not-a-valid-rsa-public-key', {
+      onLog,
+    });
+
+    await expect(
+      wrapped.chat.completions.create({
+        model: 'gpt-5.4-mini',
+        messages: [{ role: 'user', content: sensitiveRequestText }],
+      }),
+    ).rejects.toThrow();
+
+    expect(onLog).not.toHaveBeenCalled();
+    expect(createMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,6 +15,7 @@ export interface EncryptedLogPayload {
   encryptedKey: string;
   timestamp: string;
   metadata: {
+    keyId: string | null;
     model: string | null;
     usage: UnknownRecord | null;
     latencyMs: number;
@@ -26,6 +27,7 @@ export interface EncryptedLogPayload {
 export interface WrapOpenAIOptions {
   onLog: (log: EncryptedLogPayload) => void;
   now?: () => number;
+  keyId?: string;
 }
 
 interface OpenAICompat {
@@ -164,6 +166,7 @@ export function wrapOpenAI<T extends OpenAICompat>(
       encryptedKey,
       timestamp: new Date().toISOString(),
       metadata: {
+        keyId: options.keyId ?? null,
         model: toModelValue(params, response),
         usage: toUsageRecord(response),
         latencyMs: now() - startedAt,
