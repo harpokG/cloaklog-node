@@ -6,6 +6,13 @@
 
 CloakLog encrypts sensitive LLM text **before** it leaves your app, while preserving observability metadata in clear text.
 
+> [!WARNING]
+> **Status: MVP / Not production-ready by default.**
+> `cloaklog-node@0.1.0` is an early security-focused MVP. It is suitable for evaluation and pilot usage, but not yet a complete enterprise security platform.
+
+> [!NOTE]
+> For vulnerability reporting, see [`SECURITY.md`](./SECURITY.md).
+
 ## The Problem
 
 If you forward raw OpenAI requests/responses to observability platforms (Datadog, Langfuse, etc.), you may expose:
@@ -142,6 +149,7 @@ LOG CHIFFRÉ ENVOYÉ PAR L’ENTREPRISE
   "scheme": "cloaklog-envelope-v1",
   "keyAlgorithm": "rsa-oaep-sha256",
   "metadata": {
+    "keyId": "tenant-eu-1",
     "model": "gpt-5.4-mini",
     "usage": {
       "prompt_tokens": 31,
@@ -198,3 +206,25 @@ DÉCHIFFREMENT CÔTÉ ENTREPRISE
 - Encrypts only `content` fields in this MVP
 - `function_call` and `tool_calls` are intentionally out of scope for this first release
 - Keep your RSA private key in a secure key management system (KMS/HSM/Vault)
+
+## Production Scope (Current)
+
+What this MVP provides now:
+
+- Local envelope encryption (`AES-256-GCM` + `RSA-OAEP-SHA256`) for `messages.content` and response `message.content`
+- Fail-secure behavior: no plaintext observability payload when encryption pipeline fails
+- Metadata preservation for operations (`model`, token usage, latency)
+- Optional `metadata.keyId` field to prepare key rotation workflows
+
+What is out of scope right now:
+
+- Built-in KMS integrations (AWS KMS/GCP KMS/Vault)
+- Coverage for `tool_calls`, `function_call`, and non-OpenAI providers
+- Policy engine, signatures/non-repudiation, and formal compliance controls
+
+## Roadmap Snapshot
+
+- **P0**: docs hardening, security policy, schema/versioning discipline, fail-secure test coverage
+- **P1**: KMS integration + key rotation lifecycle + perf/reliability metrics
+- **P2**: multi-provider adapters + policy engine + stronger transport and integrity controls
+- **P3**: enterprise trust posture (third-party assessment, compliance evidence, release provenance)

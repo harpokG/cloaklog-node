@@ -1,7 +1,13 @@
 {
   "name": "cloaklog-node",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Zero-knowledge observability encryption layer for LLM logs",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -22,7 +28,10 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "openai": ">=6"
   },
