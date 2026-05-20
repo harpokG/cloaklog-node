@@ -1,4 +1,11 @@
-export { wrapOpenAI, type EncryptedField, type EncryptedLogPayload, type WrapOpenAIOptions } from './adapters/openai';
+export {
+  wrapOpenAI,
+  wrapOpenAIWithKeyProvider,
+  type EncryptedField,
+  type EncryptedLogPayload,
+  type WrapOpenAIOptions,
+  type KeyProvider,
+} from './adapters/openai';
 export {
   decryptContentWithKey,
   decryptDataKey,

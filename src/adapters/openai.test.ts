@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { wrapOpenAI, type EncryptedField, type EncryptedLogPayload } from './openai';
-import { decryptContentWithKey, decryptDataKey, generateKeyPair } from '../core/crypto';
+import { wrapOpenAI, wrapOpenAIWithKeyProvider, type EncryptedField, type EncryptedLogPayload } from './openai';
+import { decryptContentWithKey, decryptDataKey, encryptDataKey, generateKeyPair } from '../core/crypto';
 
 type MockCreateParams = {
   model: string;
@@ -186,5 +186,73 @@ describe('wrapOpenAI adapter', () => {
 
     expect(onLog).not.toHaveBeenCalled();
     expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports provider-based key wrapping for production integrations', async () => {
+    const { publicKey, privateKey } = await generateKeyPair();
+
+    const createMock = vi.fn(async (...args: any[]): Promise<MockCreateResponse> => {
+      const params = args[0] as MockCreateParams;
+
+      return {
+        id: 'chatcmpl_test_3',
+        model: params.model,
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'Provider wrapped response',
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 5,
+          completion_tokens: 4,
+          total_tokens: 9,
+        },
+      };
+    });
+
+    const openaiMock = {
+      chat: {
+        completions: {
+          create: createMock,
+        },
+      },
+    };
+
+    let capturedLog: EncryptedLogPayload | null = null;
+
+    const wrapped = wrapOpenAIWithKeyProvider(
+      openaiMock,
+      {
+        encryptDataKey: (dataKey) => encryptDataKey(dataKey, publicKey),
+        keyId: 'kms-eu-prod-key-1',
+      },
+      {
+        onLog: (log) => {
+          capturedLog = log;
+        },
+      },
+    );
+
+    await wrapped.chat.completions.create({
+      model: 'gpt-5.4-mini',
+      messages: [{ role: 'user', content: 'Sensitive provider payload' }],
+    });
+
+    if (capturedLog === null) {
+      throw new Error('Expected encrypted log payload');
+    }
+
+    const log: EncryptedLogPayload = capturedLog;
+
+    expect(log.metadata.keyId).toBe('kms-eu-prod-key-1');
+
+    const encryptedRequestContent = asEncryptedField((log.request.messages as Array<{ content: unknown }>)[0]?.content);
+    const dataKey = decryptDataKey(log.encryptedKey, privateKey);
+    const decryptedRequest = decryptContentWithKey(encryptedRequestContent.payload, dataKey);
+
+    expect(decryptedRequest).toBe('Sensitive provider payload');
   });
 });

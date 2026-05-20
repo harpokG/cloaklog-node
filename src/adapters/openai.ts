@@ -30,6 +30,11 @@ export interface WrapOpenAIOptions {
   keyId?: string;
 }
 
+export interface KeyProvider {
+  encryptDataKey: (dataKey: Buffer) => string;
+  keyId?: string | null;
+}
+
 interface OpenAICompat {
   chat: {
     completions: {
@@ -146,6 +151,19 @@ export function wrapOpenAI<T extends OpenAICompat>(
   publicKey: PublicKeyInput,
   options: WrapOpenAIOptions,
 ): T {
+  const keyProvider: KeyProvider = {
+    encryptDataKey: (dataKey) => encryptDataKey(dataKey, publicKey),
+    keyId: null,
+  };
+
+  return wrapOpenAIWithKeyProvider(openaiInstance, keyProvider, options);
+}
+
+export function wrapOpenAIWithKeyProvider<T extends OpenAICompat>(
+  openaiInstance: T,
+  keyProvider: KeyProvider,
+  options: WrapOpenAIOptions,
+): T {
   const originalCreate = openaiInstance.chat.completions.create.bind(openaiInstance.chat.completions);
   const now = options.now ?? Date.now;
 
@@ -154,7 +172,7 @@ export function wrapOpenAI<T extends OpenAICompat>(
     const response = await originalCreate(...args);
 
     const dataKey = generateDataKey();
-    const encryptedKey = encryptDataKey(dataKey, publicKey);
+    const encryptedKey = keyProvider.encryptDataKey(dataKey);
 
     const params = args[0];
     const encryptedRequest = buildEncryptedRequest(params, dataKey);
@@ -166,7 +184,7 @@ export function wrapOpenAI<T extends OpenAICompat>(
       encryptedKey,
       timestamp: new Date().toISOString(),
       metadata: {
-        keyId: options.keyId ?? null,
+        keyId: options.keyId ?? keyProvider.keyId ?? null,
         model: toModelValue(params, response),
         usage: toUsageRecord(response),
         latencyMs: now() - startedAt,
